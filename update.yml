@@ -1,11 +1,28 @@
-- name: Update apt cache
+- name: Force unlock and update APT
   hosts: all
-  become: yes            # This gives sudo/root access
+  become: yes
   gather_facts: no
 
   tasks:
+    - name: Kill any apt/dpkg processes
+      ansible.builtin.shell: |
+        killall -9 apt apt-get dpkg 2>/dev/null || true
+      ignore_errors: yes
+
+    - name: Remove apt lock files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/apt/lists/lock
+        - /var/lib/dpkg/lock
+        - /var/lib/dpkg/lock-frontend
+        - /var/cache/apt/archives/lock
+
+    - name: Reconfigure dpkg (in case of interrupted processes)
+      ansible.builtin.shell: dpkg --configure -a
+      ignore_errors: yes
+
     - name: Run apt update
       ansible.builtin.apt:
         update_cache: yes
-
-
